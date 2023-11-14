@@ -1,0 +1,52 @@
+---
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r}
+if (require(litsearchr)) remotes::install_github("elizagrames/litsearchr", ref = "main")
+packages <- c("easyPubMed", "litsearchr", "stopwords", "igraph", "ggplot2", "ggrepel", "ggraph")
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+install.packages(packages[!installed_packages])
+}
+lapply(packages, library, character.only = TRUE)
+```
+
+```{r}
+years <- c(2021:2022)
+years <- sprintf('(("%d/01/01"[Date - Publication] : "%d/12/31"[Date - Publication]))', years, years)
+term1 <- c('disease', 'dysbiosis') |> paste0('[Title/Abstract]')
+term2 <- c('microbiome', 'microbiota') |> paste0('[Title/Abstract]')
+term3 <- c('diet', 'lifestyle') |> paste0('[Title/Abstract]')
+search_terms <- expand.grid("year" = years, "term1" = term1, "term2" = term2, "term3" = term3)
+search_terms$final <-paste0(search_terms$year, ' AND ',
+paste0('(',apply(search_terms[, grep("term.", colnames(search_terms))], 1, paste, collapse = " AND ", sep = " "),
+')'
+)
+)
+pmid_list <- lapply(search_terms$final, easyPubMed::get_pubmed_ids)
+# lapply(pmid_list, "[", "Count")
+# lapply(pmid_list, "[", "IdList")
+pm_xml <- lapply(pmid_list, easyPubMed::fetch_pubmed_data)
+pm_df_list <- lapply(pm_xml, easyPubMed::table_articles_byAuth, included_authors = "first", getKeywords = TRUE, max_chars = 500) 
+pm_df_list <- Map(cbind, pm_df_list, "query" = search_terms$final, "terms" = apply(search_terms[, grep("term.", colnames(search_terms))], 1, paste, collapse = " AND ", sep = " "))
+pm_df <- do.call(rbind, pm_df_list)
+pm_df <- pm_df[!duplicated(pm_df), ]
+```
+
+```{r}
+pm_terms_title <- litsearchr::extract_terms(text = pm_df[,"title"],
+method = "fakerake", min_freq = 3, min_n = 2,
+stopwords = stopwords::data_stopwords_stopwordsiso$en)
+pm_terms_keywords <- litsearchr::extract_terms(keywords = trimws(unlist(strsplit(pm_df[,"keywords"], ";"))),
+method = "tagged", min_freq = 3, min_n = 1, max_n = 5)
+pm_terms <- c(pm_terms_title, pm_terms_keywords)
+pm_terms <- pm_terms[!duplicated(pm_terms)]
+```
+
+```{r}
+write.csv(as.data.frame(lapply(pm_df[c("pmid", "doi", "title", "jabbrv", "keywords", "abstract")], substr, start = 1, stop = 30)), "easypubmed.csv")
+```

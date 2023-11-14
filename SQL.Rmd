@@ -1,0 +1,204 @@
+---
+title: "SQL"
+output: html_document
+date: "2023-08-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE} 
+packages <- c("RMySQL", "tidyverse", "rvest", "magrittr", "ggmap", "stringr", "RColorBrewer", "dplyr", "ggplot2", "plotly", "ggrepel", "flextable", "maps", "rnaturalearth")
+lapply(packages, library, character.only = TRUE)
+register_google(key = 'AIzaSyAYMTGJQDnHMHSlVngNdITapewqpUiC3dI')
+world_map <- ne_countries(scale = "medium", returnclass = "sf")
+```
+
+```{r}
+lapply(dbListConnections(MySQL()), dbDisconnect)
+mysqlconnection <-  dbConnect(RMySQL::MySQL(),
+                            dbname='',
+                            host='',
+                            port=,
+                            user='',
+                            password='')
+```
+
+
+```{r}
+dbListTables(mysqlconnection)
+```
+
+```{r}
+query1 <- dbSendQuery(mysqlconnection, "SELECT COUNT(condition_id) FROM `condition`")
+condition_number <- fetch(query1, n =-1)
+query2 <- dbSendQuery(mysqlconnection, "SELECT COUNT(study_id) FROM `study`")
+study_number <- fetch(query2, n =-1)
+query3 <- dbSendQuery(mysqlconnection, "SELECT COUNT(host_id) FROM host")
+host_number <- fetch(query3, n =-1)
+query4 <- dbSendQuery(mysqlconnection, "SELECT COUNT(method_id) FROM method")
+method_number <- fetch(query4, n =-1)
+query5 <- dbSendQuery(mysqlconnection, "SELECT COUNT(microbe_id) FROM microbe")
+microbe_number <- fetch(query5, n =-1)
+query6 <- dbSendQuery(mysqlconnection, "SELECT COUNT(publication_id) FROM publication")
+publication_number <- fetch(query6, n =-1)
+query7 <- dbSendQuery(mysqlconnection, "SELECT COUNT(site_id) FROM site")
+site_number <- fetch(query7, n =-1)
+
+table <- c(study_number, publication_number, host_number, condition_number, method_number, microbe_number, site_number) 
+table %>%
+  as.data.frame() %>%
+  rename(`Condtion` = COUNT.condition_id., Study = COUNT.study_id., Host = COUNT.host_id., Method = COUNT.method_id., Microbe = COUNT.microbe_id., Publication = COUNT.publication_id., Site = COUNT.site_id.) %>%   
+  flextable()%>%
+  theme_box()
+  
+```
+
+```{r}
+result1 <- dbSendQuery(mysqlconnection, "select site_type from site join host on site.site_id = host.site_id") 
+site <- fetch(result1, n =-1)
+site
+site_type <- data.frame(table(site$site_type)) %>%
+  rename(Number = Freq, Site = Var1)
+
+site_type <- site_type %>% 
+    mutate(csum = rev(cumsum(rev(site_type$Number))), 
+           pos = site_type$Number/2 + lead(csum, 1),
+           pos = if_else(is.na(pos), site_type$Number /2, pos),
+           percentage = round(site_type$Number/sum(site_type$Number)*100), 2)
+
+ggplot(data = site_type, aes(x = "", y = site_type$Number, fill = Site)) + 
+  geom_col(width = 1, color = 1) +
+  geom_label_repel(aes(y = pos, label = sprintf("%g%%",percentage), fill = Site), size = 3, nudge_x = 1, show.legend = FALSE) +
+  labs(fill = "Site" ) +
+  coord_polar(theta = "y") +
+  theme_void() +
+  scale_fill_brewer(palette = "Set3")
+```
+
+```{r}
+result1_2 <- dbSendQuery(mysqlconnection, "select species, host_id from host") 
+host <- fetch(result1_2, n =-1)
+host
+host_type <- data.frame(table(host$species)) %>%
+  rename(Number = Freq, Species = Var1)
+
+host_type <- host_type %>% 
+    mutate(csum = rev(cumsum(rev(host_type$Number))), 
+           pos = host_type$Number/2 + lead(csum, 1),
+           pos = if_else(is.na(pos), host_type$Number /2, pos),
+           percentage = round(host_type$Number/sum(host_type$Number)*100), 2)
+
+ggplot(data = host_type, aes(x = "", y = Number, fill = Species)) + 
+  geom_col(width = 1, color = 1) +
+  geom_label_repel(aes(y = pos, label = sprintf("%g%%",percentage), fill = Species), size = 3, nudge_x = 1, show.legend = FALSE) +
+  labs(fill = "Species" ) +
+  coord_polar(theta = "y") +
+  theme_void() +
+  scale_fill_brewer(palette = "Set3")
+```
+
+```{r}
+result2 <- dbSendQuery(mysqlconnection, "select geographic_location, host_id from host") 
+country <- fetch(result2)
+country <- data.frame(country) 
+country <- country %>% 
+  separate_rows(geographic_location, sep = ",")
+country$geographic_location <- as.character(country$geographic_location)
+
+lat_longs <- geocode(country$geographic_location, method = 'osm', lat = latitude , long = longitude)
+lat_longs <- data.frame(lat_longs)
+ggplot(lat_longs) +
+  geom_map(dat=world_map, map = world_map, aes(map_id=region), 
+                    fill="white", color="black") +
+  geom_map(map = world_map, aes(map_id = country$geographic_location), 
+                    fill = "#0046F9", colour = "black") +
+  expand_limits(x = world_map$long, y = world_map$lat) + 
+  theme(legend.position="none") +
+  labs(y = "", x = "")
+```
+
+
+```{r}
+result3 <- dbSendQuery(mysqlconnection, "select method_type from method join study on method.method_id = study.method_id") 
+method <-fetch(result3, n =-1)
+method <- data.frame(table(method$method_type)) %>%
+  rename(Number = Freq, Name = Var1)
+data.frame(method) %>%
+  flextable()%>%
+  theme_box() %>%
+  hline(i = NULL, j = NULL, border = NULL, part = "body")
+
+```
+
+```{r}
+result4 <- dbSendQuery(mysqlconnection, "select year, journal, doi from publication") 
+publication <-fetch(result4, n =-1)
+publication
+year <- data.frame(table(publication$year)) %>%
+  rename(Number = Freq, Year= Var1)
+ggplot(data=year, aes(x=Year, y=Number)) +
+  geom_bar(stat="identity", fill="#0046F9")+
+  theme_minimal() +
+  labs(y= "Number of articles", x = "Year")
+```
+```{r}
+result5 <- dbSendQuery(mysqlconnection, "select condition_type as disease, complication_or_side_disease as side_disease, genus, dysbiosis from microbe join study on study.microbe_id = microbe.microbe_id join host on study.host_id = host.host_id join `condition` on host.condition_id = condition.condition_id where genus <> 'NA' AND dysbiosis = 'Missing' AND (condition_type = 'Type 2 diabetes' OR condition_type  = 'Diabetic retinopathy')") 
+microbe <- fetch(result5, n =-1)
+data.frame(microbe) %>%
+  flextable()%>%
+  theme_box() %>%
+  hline(i = NULL, j = NULL, border = NULL, part = "body") %>%
+  merge_v(c("disease", "dysbiosis", "side_disease"))
+
+```
+
+```{r}
+result6 <- dbSendQuery(mysqlconnection, "select distinct phylum AS PHYLUM_OF_MICROBE, period AS TEST_GROUP, industrialization AS INDUSTRIALIZATION, dysbiosis as TYPE_OF_DYSBIOSIS, control_group AS CONTROL_GROUP from microbe join study on study.microbe_id = microbe.microbe_id join host on study.host_id = host.host_id where genus <> 'NA' and dysbiosis = 'decreased' and control_group = 'Palaeofaeces'") 
+paleo <- fetch(result6, n =-1)
+data.frame(paleo) %>%
+  flextable()%>%
+  theme_box() %>%
+  hline(i = NULL, j = NULL, border = NULL, part = "body") %>%
+  merge_v(c("TYPE_OF_DYSBIOSIS", "CONTROL_GROUP", "TEST_GROUP", "INDUSTRIALIZATION"))
+```
+
+```{r}
+result7 <- dbSendQuery(mysqlconnection, "select distinct phylum AS PHYLUM_OF_MICROBE, period AS TEST_GROUP, industrialization AS INDUSTRIALIZATION, dysbiosis as TYPE_OF_DYSBIOSIS, control_group AS CONTROL_GROUP from microbe join study on study.microbe_id = microbe.microbe_id join host on study.host_id = host.host_id where genus <> 'NA' and dysbiosis = 'increased' and control_group = 'Non-industrial modern subjects'") 
+urban <- fetch(result7, n =-1)
+data.frame(urban) %>%
+  flextable()%>%
+  theme_box() %>%
+  hline(i = NULL, j = NULL, border = NULL, part = "body") %>%
+  merge_v(c("TYPE_OF_DYSBIOSIS", "CONTROL_GROUP", "TEST_GROUP", "INDUSTRIALIZATION"))
+```
+
+```{r}
+result8 <- dbSendQuery(mysqlconnection, "select condition_type FROM `condition` JOIN host ON host.condition_id = condition.condition_id") 
+disease <- fetch(result8, n =-1)
+disease <- data.frame(table(disease$condition_type)) %>%
+  rename(Number = Freq, `Condition` = Var1)
+ggplot(data=disease, aes(x=`Condition`, y=Number)) +
+  geom_bar(stat="identity", fill="#0046F9")+
+  theme_minimal() +
+  labs(y= "Number of cases", x = "Condition") +
+  coord_flip()
+
+```
+
+```{r}
+result9 <- dbSendQuery(mysqlconnection, "SELECT genus FROM microbe JOIN study ON study.microbe_id = microbe.microbe_id WHERE genus <> 'NA'") 
+microbiota <- fetch(result9, n =-1)
+microbiota <- data.frame(table(microbiota$genus)) %>%
+  rename(Number = Freq, Genus = Var1) 
+
+microbiota <- microbiota[order(-microbiota$Number), ]
+top_20 <- head(microbiota, 20)
+ggplot(data=top_20, aes(x=reorder(Genus, Number), y=Number)) +
+  geom_bar(stat="identity", fill="#0046F9")+
+  theme_minimal() +
+  labs(y= "Number of cases", x = "Genus") +
+  coord_flip()
+```
+

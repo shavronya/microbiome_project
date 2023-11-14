@@ -1,0 +1,56 @@
+---
+title: "NCBI"
+output: html_document
+date: "2023-08-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages("taxonomizr")
+#install.packages("readxl")
+#install.packages("tidyverse")
+library(taxonomizr)
+library(readxl)
+library(tidyverse)
+library (data.table)
+```
+
+```{r}
+prepareDatabase('accessionTaxa.sql')
+```
+```{r}
+getNamesAndNodes()
+```
+
+```{r}
+data <- read_xlsx(path = "2_1.xlsx")
+colnames(data) <- "species"
+data <- data %>%
+    mutate(species = str_replace(species, "_", " "))
+
+```
+
+
+```{r}
+for (i in data)
+{
+  taxaId <-getId(i,'accessionTaxa.sql')
+}
+print(taxaId)
+```
+
+
+```{r}
+df <- getTaxonomy(taxaId,'accessionTaxa.sql')
+df <- data.frame(df) %>%
+  rownames_to_column(var = "NCBI_ID")
+write.csv(df, file='results.csv', row.names=FALSE)
+```
+
+```{r}
+
+```
+

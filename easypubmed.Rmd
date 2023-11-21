@@ -5,6 +5,10 @@
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
+``` {r}
+install.packages("languageserver")
+```
+
 ```{r}
 if (require(litsearchr)) remotes::install_github("elizagrames/litsearchr", ref = "main")
 packages <- c("easyPubMed", "litsearchr", "stopwords", "igraph", "ggplot2", "ggrepel", "ggraph")

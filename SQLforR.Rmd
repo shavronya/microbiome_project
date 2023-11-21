@@ -6,13 +6,27 @@ date: "2023-08-18"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::include_graphics()
+```
+
+```{r}
+install.packages("renv")
+library(renv)
+renv::init()
+renv::activate()
+renv::status()
 ```
 
 ```{r include=FALSE} 
-packages <- c("RMySQL", "tidyverse", "rvest", "magrittr", "ggmap", "stringr", "RColorBrewer", "dplyr", "ggplot2", "plotly", "ggrepel", "flextable", "maps", "rnaturalearth")
+packages <- c("RMySQL", "dplyr", "DBI", "tidyverse", "rvest", "magrittr", "ggmap", "theme_box","stringr", "RColorBrewer", "dplyr", "ggplot2", "plotly", "ggrepel", "flextable", "maps", "rnaturalearth")
+lapply(packages, install.packages)
 lapply(packages, library, character.only = TRUE)
 register_google(key = 'AIzaSyAYMTGJQDnHMHSlVngNdITapewqpUiC3dI')
 world_map <- ne_countries(scale = "medium", returnclass = "sf")
+```
+
+```{r}
+install.packages("flextable")
 ```
 
 ```{r}
@@ -50,8 +64,8 @@ table <- c(study_number, publication_number, host_number, condition_number, meth
 table %>%
   as.data.frame() %>%
   rename(`Condtion` = COUNT.condition_id., Study = COUNT.study_id., Host = COUNT.host_id., Method = COUNT.method_id., Microbe = COUNT.microbe_id., Publication = COUNT.publication_id., Site = COUNT.site_id.) %>%   
-  flextable()%>%
-  theme_box()
+  flextable() %>%
+  set_table_properties(width = .75, layout = "autofit")
   
 ```
 

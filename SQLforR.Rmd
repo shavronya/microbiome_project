@@ -10,27 +10,26 @@ knitr::include_graphics()
 ```
 
 ```{r}
-install.packages("renv")
-library(renv)
-renv::init()
 renv::activate()
 renv::status()
+packages  <- c("DBI", "zip", "ragg", "RMySQL", "dplyr", "DBI", "tidyverse", "rvest", "magrittr", "ggmap", "theme_box", "stringr", "RColorBrewer", "dplyr", "ggplot2", "plotly", "ggrepel", "flextable", "maps", "rnaturalearth")
+lapply(packages, install.packages)
+lapply(packages, library)
+renv::snapshot()
+
+
 ```
 
-```{r include=FALSE} 
-packages <- c("RMySQL", "dplyr", "DBI", "tidyverse", "rvest", "magrittr", "ggmap", "theme_box","stringr", "RColorBrewer", "dplyr", "ggplot2", "plotly", "ggrepel", "flextable", "maps", "rnaturalearth")
-lapply(packages, install.packages)
-lapply(packages, library, character.only = TRUE)
+```{r} 
+# Register Google API key
 register_google(key = 'AIzaSyAYMTGJQDnHMHSlVngNdITapewqpUiC3dI')
+
+# Get world map data
 world_map <- ne_countries(scale = "medium", returnclass = "sf")
 ```
 
 ```{r}
-install.packages("flextable")
-```
-
-```{r}
-lapply(dbListConnections(MySQL()), dbDisconnect)
+lapply(dbListConnections(MySQL()), dbConnect)
 mysqlconnection <-  dbConnect(RMySQL::MySQL(),
                             dbname='microbiome',
                             host='127.0.0.1',
@@ -64,8 +63,7 @@ table <- c(study_number, publication_number, host_number, condition_number, meth
 table %>%
   as.data.frame() %>%
   rename(`Condtion` = COUNT.condition_id., Study = COUNT.study_id., Host = COUNT.host_id., Method = COUNT.method_id., Microbe = COUNT.microbe_id., Publication = COUNT.publication_id., Site = COUNT.site_id.) %>%   
-  flextable() %>%
-  set_table_properties(width = .75, layout = "autofit")
+  flextable::flextable()
   
 ```
 

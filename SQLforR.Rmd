@@ -17,9 +17,13 @@ lapply(packages, install.packages)
 lapply(packages, library)
 renv::snapshot()
 
-
 ```
 
+``` {r}
+sink("requirements.txt")
+sessionInfo()
+sink()
+```
 ```{r} 
 # Register Google API key
 register_google(key = 'AIzaSyAYMTGJQDnHMHSlVngNdITapewqpUiC3dI')

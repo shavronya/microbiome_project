@@ -5,14 +5,14 @@ date: "2023-08-18"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-knitr::include_graphics()
+knitr::opts_chunk$set(echo = TRUE)y
 ```
 
 ```{r}
 renv::activate()
 renv::status()
-packages  <- c("DBI", "zip", "ragg", "RMySQL", "dplyr", "DBI", "tidyverse", "rvest", "magrittr", "ggmap", "theme_box", "stringr", "RColorBrewer", "dplyr", "ggplot2", "plotly", "ggrepel", "flextable", "maps", "rnaturalearth")
+packages  <- c("DBI", "zip", "ragg", "RMySQL", "dplyr", "DBI", "tidyverse", "rvest", "magrittr", "ggmap", 
+"stringr", "RColorBrewer", "dplyr", "ggplot2", "plotly", "ggrepel", "flextable", "maps", "rnaturalearthdata")
 lapply(packages, install.packages)
 lapply(packages, library)
 renv::snapshot()
@@ -94,10 +94,10 @@ ggplot(data = site_type, aes(x = "", y = site_type$Number, fill = Site)) +
 ```
 
 ```{r}
-result1_2 <- dbSendQuery(mysqlconnection, "select species, host_id from host") 
+result1_2 <- dbSendQuery(mysqlconnection, "select host_type, host_id from host") 
 host <- fetch(result1_2, n =-1)
 host
-host_type <- data.frame(table(host$species)) %>%
+host_type <- data.frame(table(host$host_type)) %>%
   rename(Number = Freq, Species = Var1)
 
 host_type <- host_type %>% 
@@ -114,25 +114,32 @@ ggplot(data = host_type, aes(x = "", y = Number, fill = Species)) +
   theme_void() +
   scale_fill_brewer(palette = "Set3")
 ```
+``` {r}
+str(world_map)
+```
 
 ```{r}
+if (!dbHasCompleted(result2)) {
+  dbClearResult(result2)
+}
 result2 <- dbSendQuery(mysqlconnection, "select geographic_location, host_id from host") 
 country <- fetch(result2)
 country <- data.frame(country) 
-country <- country %>% 
-  separate_rows(geographic_location, sep = ",")
-country$geographic_location <- as.character(country$geographic_location)
 
-lat_longs <- geocode(country$geographic_location, method = 'osm', lat = latitude , long = longitude)
+country$geographic_location <- gsub('\\["', '', country$geographic_location)  # Remove the '["' at the start
+country$geographic_location <- gsub('"]', '', country$geographic_location)    # Remove the '"]' at the end
+country$geographic_location <- gsub('"', '', country$geographic_location) 
+country$geographic_location <- as.character(country$geographic_location)
+country$geographic_location <- df[country$geographic_location != "", ]
+
+lat_longs <- geocode(country$geographic_location, method = 'osm')
 lat_longs <- data.frame(lat_longs)
-ggplot(lat_longs) +
-  geom_map(dat=world_map, map = world_map, aes(map_id=region), 
-                    fill="white", color="black") +
-  geom_map(map = world_map, aes(map_id = country$geographic_location), 
-                    fill = "#0046F9", colour = "black") +
-  expand_limits(x = world_map$long, y = world_map$lat) + 
-  theme(legend.position="none") +
+ggplot(data = world_map) +
+  geom_map(fill = "white", color = "black") +  # Plotting the sf object
+  geom_point(data = lat_longs, aes(x = lon, y = lat), color = "#0046F9") +
+  theme(legend.position = "none") +
   labs(y = "", x = "")
+
 ```
 
 
@@ -143,8 +150,7 @@ method <- data.frame(table(method$method_type)) %>%
   rename(Number = Freq, Name = Var1)
 data.frame(method) %>%
   flextable()%>%
-  theme_box() %>%
-  hline(i = NULL, j = NULL, border = NULL, part = "body")
+
 
 ```
 
@@ -157,7 +163,11 @@ year <- data.frame(table(publication$year)) %>%
 ggplot(data=year, aes(x=Year, y=Number)) +
   geom_bar(stat="identity", fill="#0046F9")+
   theme_minimal() +
-  labs(y= "Number of articles", x = "Year")
+  labs(y= "Number of articles", x = "Year") +
+  theme(text = element_text(size = 14),  # Adjust base font size
+          axis.title = element_text(size = 20),  # Adjust axis title font size
+          axis.text = element_text(size = 16)) +
+  coord_flip()
 ```
 ```{r}
 result5 <- dbSendQuery(mysqlconnection, "select condition_type as disease, complication_or_side_disease as side_disease, genus, dysbiosis from microbe join study on study.microbe_id = microbe.microbe_id join host on study.host_id = host.host_id join `condition` on host.condition_id = condition.condition_id where genus <> 'NA' AND dysbiosis = 'Missing' AND (condition_type = 'Type 2 diabetes' OR condition_type  = 'Diabetic retinopathy')") 
@@ -191,30 +201,37 @@ data.frame(urban) %>%
 ```
 
 ```{r}
-result8 <- dbSendQuery(mysqlconnection, "select condition_type FROM `condition` JOIN host ON host.condition_id = condition.condition_id") 
+result8 <- dbSendQuery(mysqlconnection, "select host_id, condition_type FROM `condition` JOIN host ON host.condition_id = condition.condition_id") 
 disease <- fetch(result8, n =-1)
 disease <- data.frame(table(disease$condition_type)) %>%
-  rename(Number = Freq, `Condition` = Var1)
-ggplot(data=disease, aes(x=`Condition`, y=Number)) +
-  geom_bar(stat="identity", fill="#0046F9")+
-  theme_minimal() +
-  labs(y= "Number of cases", x = "Condition") +
-  coord_flip()
+  rename(Number = Freq, 'Condition' = Var1)
+disease %>% flextable()
 
 ```
 
 ```{r}
-result9 <- dbSendQuery(mysqlconnection, "SELECT genus FROM microbe JOIN study ON study.microbe_id = microbe.microbe_id WHERE genus <> 'NA'") 
+result9 <- dbSendQuery(mysqlconnection, "SELECT genus, study_id FROM microbe JOIN study ON study.microbe_id = microbe.microbe_id WHERE genus <> ' '") 
 microbiota <- fetch(result9, n =-1)
 microbiota <- data.frame(table(microbiota$genus)) %>%
   rename(Number = Freq, Genus = Var1) 
 
 microbiota <- microbiota[order(-microbiota$Number), ]
-top_20 <- head(microbiota, 20)
+top_20 <- head(microbiota, 10)
 ggplot(data=top_20, aes(x=reorder(Genus, Number), y=Number)) +
   geom_bar(stat="identity", fill="#0046F9")+
   theme_minimal() +
   labs(y= "Number of cases", x = "Genus") +
+  theme(text = element_text(size = 14),  # Adjust base font size
+          axis.title = element_text(size = 20),  # Adjust axis title font size
+          axis.text = element_text(size = 16)) +
   coord_flip()
 ```
 
+
+``` {r}
+result3 <- dbSendQuery(mysqlconnection, "select platfrom from method join study on method.method_id = study.method_id") 
+method <-fetch(result3, n =-1)
+method <- data.frame(table(method$method_type))
+data.frame(method) %>%
+  flextable()%>%
+```

@@ -15,8 +15,6 @@ packages  <- c("DBI", "zip", "ragg", "RMySQL", "dplyr", "DBI", "tidyverse", "rve
 "stringr", "RColorBrewer", "dplyr", "ggplot2", "plotly", "ggrepel", "flextable", "maps", "rnaturalearthdata")
 lapply(packages, install.packages)
 lapply(packages, library)
-renv::snapshot()
-
 ```
 
 ``` {r}
@@ -94,7 +92,7 @@ ggplot(data = site_type, aes(x = "", y = site_type$Number, fill = Site)) +
 ```
 
 ```{r}
-result1_2 <- dbSendQuery(mysqlconnection, "select host_type, host_id from host") 
+result1_2 <- dbSendQuery(mysqlconnection, "select host_type from host") 
 host <- fetch(result1_2, n =-1)
 host
 host_type <- data.frame(table(host$host_type)) %>%
@@ -114,9 +112,7 @@ ggplot(data = host_type, aes(x = "", y = Number, fill = Species)) +
   theme_void() +
   scale_fill_brewer(palette = "Set3")
 ```
-``` {r}
-str(world_map)
-```
+
 
 ```{r}
 if (!dbHasCompleted(result2)) {
@@ -133,11 +129,15 @@ country$geographic_location <- as.character(country$geographic_location)
 country$geographic_location <- df[country$geographic_location != "", ]
 
 lat_longs <- geocode(country$geographic_location, method = 'osm')
+lat_longs <- na.omit(lat_longs)
 lat_longs <- data.frame(lat_longs)
-ggplot(data = world_map) +
-  geom_map(fill = "white", color = "black") +  # Plotting the sf object
-  geom_point(data = lat_longs, aes(x = lon, y = lat), color = "#0046F9") +
-  theme(legend.position = "none") +
+ggplot(lat_longs) +
+  geom_map(dat=world_map, map = world_map, aes(map_id=region), 
+                    fill="white", color="black") +
+  geom_map(map = world_map, aes(map_id = country$geographic_location), 
+                    fill = "#0046F9", colour = "black") +
+  expand_limits(x = world_map$long, y = world_map$lat) + 
+  theme(legend.position="none") +
   labs(y = "", x = "")
 
 ```
@@ -234,4 +234,8 @@ method <-fetch(result3, n =-1)
 method <- data.frame(table(method$method_type))
 data.frame(method) %>%
   flextable()%>%
+```
+
+```{r}
+renv::snapshot()
 ```

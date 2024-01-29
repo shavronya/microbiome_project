@@ -113,7 +113,6 @@ ggplot(data = host_type, aes(x = "", y = Number, fill = Species)) +
   scale_fill_brewer(palette = "Set3")
 ```
 
-
 ```{r}
 if (!dbHasCompleted(result2)) {
   dbClearResult(result2)
@@ -129,15 +128,11 @@ country$geographic_location <- as.character(country$geographic_location)
 country$geographic_location <- df[country$geographic_location != "", ]
 
 lat_longs <- geocode(country$geographic_location, method = 'osm')
-lat_longs <- na.omit(lat_longs)
 lat_longs <- data.frame(lat_longs)
-ggplot(lat_longs) +
-  geom_map(dat=world_map, map = world_map, aes(map_id=region), 
-                    fill="white", color="black") +
-  geom_map(map = world_map, aes(map_id = country$geographic_location), 
-                    fill = "#0046F9", colour = "black") +
-  expand_limits(x = world_map$long, y = world_map$lat) + 
-  theme(legend.position="none") +
+ggplot(data = world_map) +
+  geom_sf(fill = "white", color = "black") +  # Plotting the sf object
+  geom_point(data = lat_longs, aes(x = lon, y = lat), color = "#0046F9") +
+  theme(legend.position = "none") +
   labs(y = "", x = "")
 
 ```
